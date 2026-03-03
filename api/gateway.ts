@@ -1,5 +1,4 @@
-export const config = { runtime: 'edge' };
-
+import type { IncomingMessage, ServerResponse } from 'http';
 import { createDomainGateway, serverOptions } from '../server/gateway';
 import type { RouteDescriptor } from '../server/router';
 
@@ -70,4 +69,31 @@ const allRoutes: RouteDescriptor[] = [
   ...createWildfireServiceRoutes(wildfireHandler, serverOptions),
 ];
 
-export default createDomainGateway(allRoutes);
+const gateway = createDomainGateway(allRoutes);
+
+function toWebRequest(req: IncomingMessage): Request {
+  const proto = (req.headers['x-forwarded-proto'] as string) || 'https';
+  const host = req.headers.host || 'localhost';
+  const url = `${proto}://${host}${req.url}`;
+  const headers = new Headers();
+  for (const [key, value] of Object.entries(req.headers)) {
+    if (value) headers.set(key, Array.isArray(value) ? value.join(', ') : value);
+  }
+  return new Request(url, { method: req.method, headers });
+}
+
+export default async function handler(req: IncomingMessage, res: ServerResponse) {
+  const webReq = toWebRequest(req);
+  try {
+    const response = await gateway(webReq);
+    res.statusCode = response.status;
+    response.headers.forEach((value, key) => res.setHeader(key, value));
+    const body = await response.arrayBuffer();
+    res.end(Buffer.from(body));
+  } catch (err) {
+    console.error('[gateway] handler error:', err);
+    res.statusCode = 500;
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ error: 'Internal server error' }));
+  }
+}
