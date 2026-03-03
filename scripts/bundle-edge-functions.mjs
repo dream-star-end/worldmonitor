@@ -31,7 +31,7 @@ async function bundleInPlace(entryPath) {
     banner: {
       js: '// @bundled — do not edit; regenerate with scripts/bundle-edge-functions.mjs\n// @ts-nocheck',
     },
-    minify: false,
+    minify: true,
     treeShaking: true,
     sourcemap: false,
     alias: {
@@ -51,7 +51,7 @@ async function bundleInPlace(entryPath) {
 
 async function main() {
   console.log(`ROOT: ${ROOT}`);
-  const catchAll = join(ROOT, 'api', '[...path].ts');
+  const catchAll = join(ROOT, 'api', 'gateway.ts');
   try {
     await stat(catchAll);
   } catch {
@@ -60,14 +60,14 @@ async function main() {
     return;
   }
 
-  console.log('Bundling consolidated Edge Function (api/[...path].ts)...');
+  console.log('Bundling consolidated Edge Function (api/gateway.ts)...');
   try {
     await bundleInPlace(catchAll);
     const code = await readFile(catchAll, 'utf8');
     const lines = code.split('\n').length;
-    console.log(`  ✓ api/[...path].ts (${lines} lines)`);
+    console.log(`  ✓ api/gateway.ts (${lines} lines)`);
   } catch (err) {
-    console.error(`  ✗ api/[...path].ts: ${err.message}`);
+    console.error(`  ✗ api/gateway.ts: ${err.message}`);
     process.exitCode = 1;
   }
   console.log('Done.');
