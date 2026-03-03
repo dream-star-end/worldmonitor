@@ -109,13 +109,9 @@ export default function middleware(request: Request) {
     return;
   }
 
-  // Allow programmatic access with a shared API key (for OpenClaw integration etc.)
-  const apiAccessKey = process.env.WM_API_ACCESS_KEY ?? '';
-  if (apiAccessKey) {
-    const authKey = request.headers.get('x-worldmonitor-key') ?? '';
-    if (authKey === apiAccessKey) {
-      return;
-    }
+  // Requests carrying an API key bypass bot-UA filtering; the gateway validates the key.
+  if (request.headers.get('x-worldmonitor-key')) {
+    return;
   }
 
   // Block bots from all API routes
