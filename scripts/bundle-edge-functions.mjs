@@ -40,8 +40,13 @@ async function bundleInPlace(entryPath) {
   });
 
   let code = await readFile(tmpOut, 'utf8');
-  // Always prepend edge runtime config — Vercel needs a top-level literal export
-  code = `export const config = { runtime: 'edge' };\n${code}`;
+  // Vercel needs a top-level literal `export var config = { runtime: 'edge' }` for static analysis.
+  // The bundle already contains a minified version — strip it to avoid duplicate exports.
+  // Handle: export{X as config, Y as default} → export{Y as default}
+  code = code.replace(/export\s*\{([^}]*)\b\w+\s+as\s+config\b,?\s*/g, 'export{$1');
+  // Handle: export{Y as default,} → export{Y as default}
+  code = code.replace(/,\s*\}/g, '}');
+  code = `export var config = { runtime: 'edge' };\n${code}`;
 
   await writeFile(entryPath, code);
   const { unlink } = await import('node:fs/promises');
