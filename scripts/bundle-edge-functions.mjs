@@ -40,9 +40,8 @@ async function bundleInPlace(entryPath) {
   });
 
   let code = await readFile(tmpOut, 'utf8');
-  if (!code.includes("runtime")) {
-    code = `export const config = { runtime: 'edge' };\n${code}`;
-  }
+  // Always prepend edge runtime config — Vercel needs a top-level literal export
+  code = `export const config = { runtime: 'edge' };\n${code}`;
 
   await writeFile(entryPath, code);
   const { unlink } = await import('node:fs/promises');
