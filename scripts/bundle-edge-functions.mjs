@@ -10,11 +10,12 @@
  *   3. Write the bundled .js as [rpc].js (Vercel picks it up)
  */
 import { build } from 'esbuild';
-import { readdir, rename, stat, readFile, writeFile } from 'node:fs/promises';
-import { join, dirname } from 'node:path';
+import { readdir, stat, readFile, writeFile, unlink } from 'node:fs/promises';
+import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(SCRIPT_DIR, '..');
 
 async function findEntryPoints() {
   const entries = [];
@@ -66,11 +67,8 @@ async function bundleOne(entryPath) {
     await writeFile(outFile, code);
   }
 
-  // Rename original .ts so Vercel won't also try to compile it
-  const srcBackup = entryPath + '.src';
-  try { await stat(srcBackup); } catch {
-    await rename(entryPath, srcBackup);
-  }
+  // Delete original .ts so Vercel won't also try to compile it
+  try { await unlink(entryPath); } catch { /* ok */ }
 
   return outFile;
 }
@@ -88,6 +86,15 @@ async function findExtraEntries() {
 }
 
 async function main() {
+  console.log(`ROOT: ${ROOT}`);
+  console.log(`CWD:  ${process.cwd()}`);
+  const apiDir = join(ROOT, 'api');
+  try {
+    const items = await readdir(apiDir);
+    console.log(`api/ contains ${items.length} items: ${items.slice(0, 5).join(', ')}...`);
+  } catch (e) {
+    console.error(`Cannot read api/: ${e.message}`);
+  }
   const entries = [...await findEntryPoints(), ...await findExtraEntries()];
   console.log(`Bundling ${entries.length} Edge Functions...`);
   for (const entry of entries) {
