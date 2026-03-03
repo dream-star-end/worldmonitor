@@ -4,13 +4,13 @@
  * without relying on its TypeScript compiler (which emits extensionless
  * ESM imports that fail in the V8-worker edge runtime).
  *
- * For each api/<domain>/v1/[rpc].ts:
- *   1. Bundle with esbuild into a single self-contained .js file
- *   2. Rename the original .ts to .ts.src (Vercel ignores it)
- *   3. Write the bundled .js as [rpc].js (Vercel picks it up)
+ * Strategy: bundle each api/<domain>/v1/[rpc].ts into a self-contained
+ * file, then OVERWRITE the original .ts with the bundled output.
+ * Bundled JS is valid TypeScript, so Vercel's tsc pass will emit it
+ * unchanged with no external import resolution needed.
  */
 import { build } from 'esbuild';
-import { readdir, stat, readFile, writeFile, unlink } from 'node:fs/promises';
+import { readdir, stat, readFile, writeFile } from 'node:fs/promises';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -37,7 +37,7 @@ async function findEntryPoints() {
 
 async function bundleOne(entryPath) {
   const dir = dirname(entryPath);
-  const outFile = join(dir, '[rpc].js');
+  const tmpOut = join(dir, '__bundled_tmp.js');
 
   await build({
     entryPoints: [entryPath],
@@ -45,12 +45,12 @@ async function bundleOne(entryPath) {
     format: 'esm',
     platform: 'neutral',
     target: 'es2020',
-    outfile: outFile,
+    outfile: tmpOut,
     external: [],
     mainFields: ['module', 'main'],
     conditions: ['edge-light', 'worker', 'browser', 'import', 'default'],
     banner: {
-      js: '// @bundled — do not edit; regenerate with scripts/bundle-edge-functions.mjs',
+      js: '// @bundled — do not edit; regenerate with scripts/bundle-edge-functions.mjs\n// @ts-nocheck',
     },
     minify: false,
     treeShaking: true,
@@ -60,20 +60,20 @@ async function bundleOne(entryPath) {
     },
   });
 
-  // Ensure the bundled file keeps `export const config = { runtime: 'edge' };`
-  let code = await readFile(outFile, 'utf8');
+  let code = await readFile(tmpOut, 'utf8');
+
+  // Ensure edge runtime config is present
   if (!code.includes("runtime")) {
     code = `export const config = { runtime: 'edge' };\n${code}`;
-    await writeFile(outFile, code);
   }
 
-  // Delete original .ts so Vercel won't also try to compile it
-  try { await unlink(entryPath); } catch { /* ok */ }
-
-  return outFile;
+  // Overwrite the original .ts with the bundled (self-contained) output
+  await writeFile(entryPath, code);
+  // Clean up temp file
+  try { const { unlink } = await import('node:fs/promises'); await unlink(tmpOut); } catch {}
 }
 
-// Also handle api/data/city-coords.ts if it exists and uses edge
+// Also handle api/data/city-coords.ts if it uses edge runtime
 async function findExtraEntries() {
   const extra = join(ROOT, 'api', 'data', 'city-coords.ts');
   try {
@@ -87,16 +87,8 @@ async function findExtraEntries() {
 
 async function main() {
   console.log(`ROOT: ${ROOT}`);
-  console.log(`CWD:  ${process.cwd()}`);
-  const apiDir = join(ROOT, 'api');
-  try {
-    const items = await readdir(apiDir);
-    console.log(`api/ contains ${items.length} items: ${items.slice(0, 5).join(', ')}...`);
-  } catch (e) {
-    console.error(`Cannot read api/: ${e.message}`);
-  }
   const entries = [...await findEntryPoints(), ...await findExtraEntries()];
-  console.log(`Bundling ${entries.length} Edge Functions...`);
+  console.log(`Bundling ${entries.length} Edge Functions (in-place)...`);
   for (const entry of entries) {
     const rel = entry.replace(ROOT + '/', '');
     try {
