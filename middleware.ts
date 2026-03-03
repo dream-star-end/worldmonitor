@@ -8,8 +8,6 @@ const SOCIAL_PREVIEW_PATHS = new Set(['/api/story', '/api/og-story']);
 
 const PUBLIC_API_PATHS = new Set(['/api/version']);
 
-const API_ACCESS_KEY = process.env.WM_API_ACCESS_KEY || '';
-
 const SOCIAL_IMAGE_UA =
   /Slack-ImgProxy|Slackbot|twitterbot|facebookexternalhit|linkedinbot|telegrambot|whatsapp|discordbot|redditbot/i;
 
@@ -112,9 +110,10 @@ export default function middleware(request: Request) {
   }
 
   // Allow programmatic access with a shared API key (for OpenClaw integration etc.)
-  if (API_ACCESS_KEY) {
+  const apiAccessKey = process.env.WM_API_ACCESS_KEY ?? '';
+  if (apiAccessKey) {
     const authKey = request.headers.get('x-worldmonitor-key') ?? '';
-    if (authKey === API_ACCESS_KEY) {
+    if (authKey === apiAccessKey) {
       return;
     }
   }
