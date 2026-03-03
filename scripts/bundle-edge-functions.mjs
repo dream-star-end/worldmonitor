@@ -1,13 +1,10 @@
 #!/usr/bin/env node
 /**
- * Pre-bundle the consolidated Edge Function catch-all so Vercel can deploy it
- * without extensionless ESM import failures in the V8-worker edge runtime.
- *
- * Strategy: bundle api/[...path].ts into a self-contained file, then overwrite
- * the original .ts. Bundled JS is valid TypeScript (with @ts-nocheck).
+ * Pre-bundle the consolidated gateway so Vercel can deploy it without
+ * extensionless ESM import failures. Bundles api/gateway.ts in-place.
  */
 import { build } from 'esbuild';
-import { readFile, writeFile, stat } from 'node:fs/promises';
+import { readFile, writeFile, stat, unlink } from 'node:fs/promises';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -22,52 +19,40 @@ async function bundleInPlace(entryPath) {
     entryPoints: [entryPath],
     bundle: true,
     format: 'esm',
-    platform: 'neutral',
-    target: 'es2020',
+    platform: 'node',
+    target: 'node22',
     outfile: tmpOut,
-    external: [],
+    external: ['http'],
     mainFields: ['module', 'main'],
-    conditions: ['edge-light', 'worker', 'browser', 'import', 'default'],
+    conditions: ['node', 'import', 'default'],
     banner: {
-      js: '// @bundled — do not edit; regenerate with scripts/bundle-edge-functions.mjs\n// @ts-nocheck',
+      js: '// @ts-nocheck\n// @bundled — do not edit; regenerate with scripts/bundle-edge-functions.mjs',
     },
     minify: true,
     treeShaking: true,
     sourcemap: false,
-    alias: {
-      stream: join(ROOT, 'scripts', '_shim-stream.mjs'),
-    },
   });
 
-  let code = await readFile(tmpOut, 'utf8');
-  // Vercel needs a top-level literal `export var config = { runtime: 'edge' }` for static analysis.
-  // The bundle already contains a minified version — strip it to avoid duplicate exports.
-  // Handle: export{X as config, Y as default} → export{Y as default}
-  code = code.replace(/export\s*\{([^}]*)\b\w+\s+as\s+config\b,?\s*/g, 'export{$1');
-  // Handle: export{Y as default,} → export{Y as default}
-  code = code.replace(/,\s*\}/g, '}');
-  code = `export var config = { runtime: 'edge' };\n${code}`;
-
+  const code = await readFile(tmpOut, 'utf8');
   await writeFile(entryPath, code);
-  const { unlink } = await import('node:fs/promises');
   try { await unlink(tmpOut); } catch {}
 }
 
 async function main() {
   console.log(`ROOT: ${ROOT}`);
-  const catchAll = join(ROOT, 'api', 'gateway.ts');
+  const gateway = join(ROOT, 'api', 'gateway.ts');
   try {
-    await stat(catchAll);
+    await stat(gateway);
   } catch {
-    console.error(`Entry point not found: ${catchAll}`);
+    console.error(`Entry point not found: ${gateway}`);
     process.exitCode = 1;
     return;
   }
 
-  console.log('Bundling consolidated Edge Function (api/gateway.ts)...');
+  console.log('Bundling gateway (api/gateway.ts)...');
   try {
-    await bundleInPlace(catchAll);
-    const code = await readFile(catchAll, 'utf8');
+    await bundleInPlace(gateway);
+    const code = await readFile(gateway, 'utf8');
     const lines = code.split('\n').length;
     console.log(`  ✓ api/gateway.ts (${lines} lines)`);
   } catch (err) {
