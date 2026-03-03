@@ -8,6 +8,8 @@ const SOCIAL_PREVIEW_PATHS = new Set(['/api/story', '/api/og-story']);
 
 const PUBLIC_API_PATHS = new Set(['/api/version']);
 
+const API_ACCESS_KEY = process.env.WM_API_ACCESS_KEY || '';
+
 const SOCIAL_IMAGE_UA =
   /Slack-ImgProxy|Slackbot|twitterbot|facebookexternalhit|linkedinbot|telegrambot|whatsapp|discordbot|redditbot/i;
 
@@ -63,7 +65,7 @@ export default function middleware(request: Request) {
   if (path === '/' && SOCIAL_PREVIEW_UA.test(ua)) {
     const variant = VARIANT_HOST_MAP[host];
     if (variant && isAllowedHost(host)) {
-      const og = VARIANT_OG[variant];
+      const og = VARIANT_OG[variant]!;
       const html = `<!DOCTYPE html><html><head>
 <meta property="og:type" content="website"/>
 <meta property="og:title" content="${og.title}"/>
@@ -107,6 +109,14 @@ export default function middleware(request: Request) {
   // Public endpoints bypass all bot filtering
   if (PUBLIC_API_PATHS.has(path)) {
     return;
+  }
+
+  // Allow programmatic access with a shared API key (for OpenClaw integration etc.)
+  if (API_ACCESS_KEY) {
+    const authKey = request.headers.get('x-worldmonitor-key') ?? '';
+    if (authKey === API_ACCESS_KEY) {
+      return;
+    }
   }
 
   // Block bots from all API routes
