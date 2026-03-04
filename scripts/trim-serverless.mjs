@@ -20,7 +20,7 @@ const DEMOTE = [
   'story.js',
 ];
 
-const DEMOTE_DIRS = ['youtube', 'data'];
+const DEMOTE_DIRS = ['youtube'];
 
 for (const file of DEMOTE) {
   try {
