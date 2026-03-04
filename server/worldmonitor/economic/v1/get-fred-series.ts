@@ -93,8 +93,8 @@ async function fetchFredSeries(req: GetFredSeriesRequest): Promise<FredSeries | 
       frequency,
       observations,
     };
-  } catch {
-    return undefined;
+  } catch (err) {
+    return { _error: err instanceof Error ? `${err.name}: ${err.message}` : String(err) } as any;
   }
 }
 
@@ -107,6 +107,7 @@ export async function getFredSeries(
     const cacheKey = `${REDIS_CACHE_KEY}:${req.seriesId}:${req.limit || 0}`;
     const result = await cachedFetchJson<GetFredSeriesResponse>(cacheKey, REDIS_CACHE_TTL, async () => {
       const series = await fetchFredSeries(req);
+      if (series && (series as any)._error) return series as any;
       return series ? { series } : null;
     });
     return result || { series: undefined };
