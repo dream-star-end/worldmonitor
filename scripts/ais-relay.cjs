@@ -27,9 +27,9 @@ const API_KEY = process.env.AISSTREAM_API_KEY || process.env.VITE_AISSTREAM_API_
 const PORT = process.env.PORT || 3004;
 
 if (!API_KEY) {
-  console.error('[Relay] Error: AISSTREAM_API_KEY environment variable not set');
-  console.error('[Relay] Get a free key at https://aisstream.io');
-  process.exit(1);
+  console.warn('[Relay] Warning: AISSTREAM_API_KEY not set — AIS vessel tracking disabled');
+  console.warn('[Relay] Get a free key at https://aisstream.io');
+  console.warn('[Relay] Other features (RSS proxy, OpenSky, Telegram, OREF) still available');
 }
 
 const MAX_WS_CLIENTS = 10; // Cap WS clients — app uses HTTP snapshots, not WS
