@@ -19,7 +19,10 @@ const REDIS_CACHE_TTL = 3600; // 1 hr — FRED data updates infrequently
 async function fetchFredSeries(req: GetFredSeriesRequest): Promise<FredSeries | undefined> {
   try {
     const apiKey = process.env.FRED_API_KEY;
-    if (!apiKey) return undefined;
+    if (!apiKey) {
+      console.warn('[FRED] FRED_API_KEY not configured');
+      return undefined;
+    }
 
     const limit = req.limit > 0 ? Math.min(req.limit, 1000) : 120;
 
@@ -49,7 +52,10 @@ async function fetchFredSeries(req: GetFredSeriesRequest): Promise<FredSeries | 
       }),
     ]);
 
-    if (!obsResponse.ok) return undefined;
+    if (!obsResponse.ok) {
+      console.warn(`[FRED] obs API returned ${obsResponse.status}: ${await obsResponse.text().catch(() => 'N/A')}`);
+      return undefined;
+    }
 
     const obsData = await obsResponse.json() as { observations?: Array<{ date: string; value: string }> };
 
@@ -83,7 +89,8 @@ async function fetchFredSeries(req: GetFredSeriesRequest): Promise<FredSeries | 
       frequency,
       observations,
     };
-  } catch {
+  } catch (err) {
+    console.warn('[FRED] fetchFredSeries error:', err instanceof Error ? err.message : String(err));
     return undefined;
   }
 }
