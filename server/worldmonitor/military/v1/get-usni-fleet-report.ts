@@ -366,7 +366,12 @@ async function fetchUSNIReport(): Promise<USNIFleetReport | null> {
     const response = await fetch(
       'https://news.usni.org/wp-json/wp/v2/posts?categories=4137&per_page=1',
       {
-        headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
+        headers: {
+          Accept: 'application/json',
+          'User-Agent': CHROME_UA,
+          'Accept-Language': 'en-US,en;q=0.9',
+          Referer: 'https://news.usni.org/',
+        },
         signal: controller.signal,
       },
     );

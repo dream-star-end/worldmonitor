@@ -58,13 +58,23 @@ export async function searchGdeltDocuments(
         gdeltUrl.searchParams.set('sort', req.sort || 'date');
         gdeltUrl.searchParams.set('timespan', timespan);
 
-        const response = await fetch(gdeltUrl.toString(), {
-          headers: { 'User-Agent': CHROME_UA },
-          signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-        });
-
-        if (!response.ok) {
-          throw new Error(`GDELT returned ${response.status}`);
+        let response: Response | undefined;
+        let lastErr: Error | undefined;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            if (attempt > 0) await new Promise(r => setTimeout(r, 1000));
+            response = await fetch(gdeltUrl.toString(), {
+              headers: { 'User-Agent': CHROME_UA },
+              signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+            });
+            if (response.ok) break;
+            lastErr = new Error(`GDELT returned ${response.status}`);
+          } catch (e) {
+            lastErr = e instanceof Error ? e : new Error(String(e));
+          }
+        }
+        if (!response?.ok) {
+          throw lastErr || new Error('GDELT request failed');
         }
 
         const data = (await response.json()) as {

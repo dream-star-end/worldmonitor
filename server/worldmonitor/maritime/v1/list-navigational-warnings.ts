@@ -44,7 +44,7 @@ async function fetchNgaWarnings(area?: string): Promise<NavigationalWarning[]> {
     if (!response.ok) return [];
 
     const data = await response.json();
-    const rawWarnings: any[] = Array.isArray(data) ? data : (data?.broadcast_warn ?? []);
+    const rawWarnings: any[] = Array.isArray(data) ? data : (data?.['broadcast-warn'] ?? data?.broadcast_warn ?? []);
 
     let warnings: NavigationalWarning[] = rawWarnings.map((w: any): NavigationalWarning => ({
       id: `${w.navArea || ''}-${w.msgYear || ''}-${w.msgNumber || ''}`,

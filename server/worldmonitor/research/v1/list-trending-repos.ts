@@ -25,45 +25,40 @@ async function fetchTrendingRepos(req: ListTrendingReposRequest): Promise<Github
   const period = req.period || 'daily';
   const pageSize = clampInt(req.pageSize, 50, 1, 100);
 
-  // Primary API
-  const primaryUrl = `https://api.gitterapp.com/repositories?language=${language}&since=${period}`;
-  let data: any[];
+  const sinceDate = new Date();
+  if (period === 'weekly') sinceDate.setDate(sinceDate.getDate() - 7);
+  else if (period === 'monthly') sinceDate.setMonth(sinceDate.getMonth() - 1);
+  else sinceDate.setDate(sinceDate.getDate() - 1);
+  const dateStr = sinceDate.toISOString().split('T')[0];
+
+  const searchUrl = `https://api.github.com/search/repositories?q=language:${encodeURIComponent(language)}+created:>${dateStr}&sort=stars&order=desc&per_page=${pageSize}`;
 
   try {
-    const response = await fetch(primaryUrl, {
-      headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
+    const response = await fetch(searchUrl, {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'User-Agent': CHROME_UA,
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
       signal: AbortSignal.timeout(10000),
     });
 
-    if (!response.ok) throw new Error('Primary API failed');
-    data = await response.json() as any[];
+    if (!response.ok) throw new Error(`GitHub API ${response.status}`);
+    const result = await response.json() as { items?: any[] };
+    const items = result.items || [];
+
+    return items.map((raw: any): GithubRepo => ({
+      fullName: raw.full_name || '',
+      description: raw.description || '',
+      language: raw.language || '',
+      stars: raw.stargazers_count || 0,
+      starsToday: raw.stargazers_count || 0,
+      forks: raw.forks_count || 0,
+      url: raw.html_url || `https://github.com/${raw.full_name}`,
+    }));
   } catch {
-    // Fallback API
-    try {
-      const fallbackUrl = `https://gh-trending-api.herokuapp.com/repositories/${language}?since=${period}`;
-      const fallbackResponse = await fetch(fallbackUrl, {
-        headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
-        signal: AbortSignal.timeout(10000),
-      });
-
-      if (!fallbackResponse.ok) return [];
-      data = await fallbackResponse.json() as any[];
-    } catch {
-      return [];
-    }
+    return [];
   }
-
-  if (!Array.isArray(data)) return [];
-
-  return data.slice(0, pageSize).map((raw: any): GithubRepo => ({
-    fullName: `${raw.author}/${raw.name}`,
-    description: raw.description || '',
-    language: raw.language || '',
-    stars: raw.stars || 0,
-    starsToday: raw.currentPeriodStars || 0,
-    forks: raw.forks || 0,
-    url: raw.url || `https://github.com/${raw.author}/${raw.name}`,
-  }));
 }
 
 // ---------- Handler ----------

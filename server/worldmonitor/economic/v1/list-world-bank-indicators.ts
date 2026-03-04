@@ -40,15 +40,27 @@ async function fetchWorldBankIndicators(
 
     const wbUrl = `https://api.worldbank.org/v2/country/${countryList}/indicator/${indicator}?format=json&date=${startYear}:${currentYear}&per_page=1000`;
 
-    const response = await fetch(wbUrl, {
-      headers: {
-        Accept: 'application/json',
-        'User-Agent': CHROME_UA,
-      },
-      signal: AbortSignal.timeout(15000),
-    });
+    let response: Response | undefined;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        if (attempt > 0) await new Promise(r => setTimeout(r, 1000));
+        response = await fetch(wbUrl, {
+          headers: {
+            Accept: 'application/json',
+            'User-Agent': CHROME_UA,
+          },
+          signal: AbortSignal.timeout(15000),
+        });
+        if (response.ok) break;
+      } catch {
+        // retry
+      }
+    }
 
-    if (!response.ok) return [];
+    if (!response?.ok) {
+      console.warn(`[WorldBank] HTTP ${response?.status ?? 'timeout'} for ${indicator}`);
+      return [];
+    }
 
     const data = await response.json();
     if (!data || !Array.isArray(data) || data.length < 2 || !data[1]) return [];

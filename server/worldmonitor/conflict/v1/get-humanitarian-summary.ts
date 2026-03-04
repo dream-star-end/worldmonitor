@@ -55,11 +55,18 @@ async function fetchHapiSummary(countryCode: string): Promise<HumanitarianCountr
     }
 
     const response = await fetch(url, {
-      headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': CHROME_UA,
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
       signal: AbortSignal.timeout(15000),
     });
 
-    if (!response.ok) return undefined;
+    if (!response.ok) {
+      console.warn(`[HAPI] HTTP ${response.status} for ${countryCode || 'all'}`);
+      return undefined;
+    }
 
     const rawData = await response.json();
     const records: any[] = rawData.data || [];

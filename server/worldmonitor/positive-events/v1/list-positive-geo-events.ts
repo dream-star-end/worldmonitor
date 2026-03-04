@@ -34,12 +34,21 @@ async function fetchGdeltGeoPositive(query: string): Promise<PositiveGeoEvent[]>
     maxrecords: '75',
   });
 
-  const response = await fetch(`${GDELT_GEO_URL}?${params}`, {
-    headers: { Accept: 'application/json' },
-    signal: AbortSignal.timeout(10000),
-  });
+  let response: Response | undefined;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      if (attempt > 0) await new Promise(r => setTimeout(r, 800));
+      response = await fetch(`${GDELT_GEO_URL}?${params}`, {
+        headers: { Accept: 'application/json', 'User-Agent': 'WorldMonitor/2.5' },
+        signal: AbortSignal.timeout(15000),
+      });
+      if (response.ok) break;
+    } catch {
+      // retry on network failures
+    }
+  }
 
-  if (!response.ok) return [];
+  if (!response?.ok) return [];
 
   const data = await response.json();
   const features: unknown[] = data?.features || [];
