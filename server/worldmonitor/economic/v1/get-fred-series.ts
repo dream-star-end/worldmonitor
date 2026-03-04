@@ -59,9 +59,7 @@ async function fetchFredSeries(req: GetFredSeriesRequest): Promise<FredSeries | 
       fetchWithRetry(`${FRED_API_BASE}/series?${metaParams}`),
     ]);
 
-    if (!obsResponse.ok) {
-      return { _error: `FRED API returned ${obsResponse.status}` } as any;
-    }
+    if (!obsResponse.ok) return undefined;
 
     const obsData = await obsResponse.json() as { observations?: Array<{ date: string; value: string }> };
 
@@ -95,8 +93,8 @@ async function fetchFredSeries(req: GetFredSeriesRequest): Promise<FredSeries | 
       frequency,
       observations,
     };
-  } catch (err) {
-    return { _error: err instanceof Error ? `${err.name}: ${err.message}` : String(err) } as any;
+  } catch {
+    return undefined;
   }
 }
 
@@ -109,7 +107,6 @@ export async function getFredSeries(
     const cacheKey = `${REDIS_CACHE_KEY}:${req.seriesId}:${req.limit || 0}`;
     const result = await cachedFetchJson<GetFredSeriesResponse>(cacheKey, REDIS_CACHE_TTL, async () => {
       const series = await fetchFredSeries(req);
-      if (series && (series as any)._error) return series as any;
       return series ? { series } : null;
     });
     return result || { series: undefined };
