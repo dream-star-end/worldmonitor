@@ -59,7 +59,9 @@ async function fetchFredSeries(req: GetFredSeriesRequest): Promise<FredSeries | 
       fetchWithRetry(`${FRED_API_BASE}/series?${metaParams}`),
     ]);
 
-    if (!obsResponse.ok) return undefined;
+    if (!obsResponse.ok) {
+      return { _error: `FRED API returned ${obsResponse.status}` } as any;
+    }
 
     const obsData = await obsResponse.json() as { observations?: Array<{ date: string; value: string }> };
 
