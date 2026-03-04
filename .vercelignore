@@ -1,0 +1,10 @@
+# Exclude non-essential api endpoints to stay within
+# Vercel Hobby plan's 12 serverless function limit.
+# These endpoints are demoted — core API goes through api/gateway.ts.
+api/bootstrap.js
+api/cache-purge.js
+api/download.js
+api/fwdstart.js
+api/register-interest.js
+api/story.js
+api/youtube
