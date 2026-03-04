@@ -20,7 +20,7 @@ const DEMOTE = [
   'story.js',
 ];
 
-const REMOVE_DIRS = ['youtube', 'data'];
+const DEMOTE_DIRS = ['youtube', 'data'];
 
 for (const file of DEMOTE) {
   try {
@@ -29,10 +29,10 @@ for (const file of DEMOTE) {
   } catch {}
 }
 
-for (const dir of REMOVE_DIRS) {
+for (const dir of DEMOTE_DIRS) {
   try {
-    rmSync(resolve(API, dir), { recursive: true, force: true });
-    console.log(`  ✗ api/${dir}/ removed`);
+    renameSync(resolve(API, dir), resolve(API, `_${dir}`));
+    console.log(`  ↓ api/${dir}/ → api/_${dir}/`);
   } catch {}
 }
 
