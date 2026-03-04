@@ -99,15 +99,17 @@ export async function getFredSeries(
   _ctx: ServerContext,
   req: GetFredSeriesRequest,
 ): Promise<GetFredSeriesResponse> {
-  if (!req.seriesId) return { series: undefined };
+  if (!req.seriesId) return { series: undefined, _debug: 'empty seriesId' } as any;
   try {
+    const hasKey = !!process.env.FRED_API_KEY;
     const cacheKey = `${REDIS_CACHE_KEY}:${req.seriesId}:${req.limit || 0}`;
     const result = await cachedFetchJson<GetFredSeriesResponse>(cacheKey, REDIS_CACHE_TTL, async () => {
       const series = await fetchFredSeries(req);
       return series ? { series } : null;
     });
-    return result || { series: undefined };
-  } catch {
-    return { series: undefined };
+    if (!result) return { series: undefined, _debug: `null result, hasKey=${hasKey}, sid=${req.seriesId}` } as any;
+    return result;
+  } catch (err) {
+    return { series: undefined, _debug: `catch: ${err instanceof Error ? err.message : String(err)}` } as any;
   }
 }
